@@ -14,8 +14,8 @@ An elegant, user-friendly weather app built using Flutter. This app fetches real
 
 1. **Clone the Repository**:
     ```bash
-    git clone https://github.com/YOUR_GITHUB_USERNAME/weather_flutter_app.git
-    cd weather_flutter_app
+    git clone https://github.com/aryamanshrivastava/WeatherWhisk.git
+    cd WeatherWhisk
     ```
 
 2. **Install Dependencies**:
