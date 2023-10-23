@@ -1,101 +1,129 @@
-// ignore_for_file: avoid_print, prefer_const_constructors
-
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-import 'package:weather/model/weather_model.dart';
-import 'package:weather/services/weather_services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:weather/pages/weather_cubit.dart';
+
+import '../widgets/custom_divider.dart';
+import '../widgets/styles.dart';
+import 'weather_state.dart';
+import 'screens/detailed_forecast.dart';
+import 'screens/todays_weather.dart';
+import 'screens/weather_details.dart';
+import 'screens/weather_forecast.dart';
 
 class WeatherPage extends StatefulWidget {
-  const WeatherPage({super.key});
+  const WeatherPage({
+    super.key,
+  });
 
   @override
   State<WeatherPage> createState() => _WeatherPageState();
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  final weatherService = WeatherService('b7df7d1c74645e5e6b5af897b020da25');
-  Weather? wweather;
-  fetchWeather() async {
-    String cityName = await weatherService.getCurrentCity();
-    try {
-      final weather = await weatherService.getWeather(cityName);
-      setState(() => wweather = weather);
-    } catch (e) {
-      print('Error: $e');
-    }
-  }
-
-  String getWeatherAnimation(String? mainCondition) {
-    if (mainCondition == null) return 'assets/sunny.json';
-    switch (mainCondition.toLowerCase()) {
-      case 'clouds':
-      case 'mist':
-      case 'smoke':
-      case 'haze':
-      case 'dust':
-      case 'fog':
-        return 'assets/cloud.json';
-      case 'rain':
-      case 'drizzle':
-      case 'shower rain':
-        return 'assets/rain.json';
-      case 'thunderstorm':
-        return 'assets/thunder.json';
-      case 'clear':
-        return 'assets/sunny.json';
-      default:
-        return 'assets/sunny.json';
-    }
-  }
+  bool _isAnyDialogActive = false;
 
   @override
   void initState() {
+    context.read<WeatherCubit>().init();
     super.initState();
-    fetchWeather();
   }
 
   @override
   Widget build(BuildContext context) {
+    double w = MediaQuery.of(context).size.width;
     double h = MediaQuery.of(context).size.height;
-    return Scaffold(
-      backgroundColor: Colors.blueGrey[900],
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Column(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  color: Colors.white,
-                  size: h * 0.05,
+    return BlocListener<WeatherCubit, WeatherState>(
+      listener: (context, state) async {
+        if (state.errorMessage.isNotEmpty && !_isAnyDialogActive) {
+          setState(() {
+            _isAnyDialogActive = true;
+          });
+          await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                actionsAlignment: MainAxisAlignment.center,
+                title: Column(
+                  children: [
+                    Text(state.errorMessage),
+                  ],
                 ),
-                Text(wweather?.cityName ?? '',
-                    style: TextStyle(
-                        fontSize: h * 0.05,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-              ],
+                actions: [
+                  TextButton(
+                    child: const Text('Ok'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              );
+            },
+          );
+          if (mounted) {
+            context.read<WeatherCubit>().resetErrorMessage();
+          }
+
+          _isAnyDialogActive = false;
+        }
+      },
+      child: BlocBuilder<WeatherCubit, WeatherState>(
+        builder: (context, state) {
+          return Scaffold(
+            resizeToAvoidBottomInset: false,
+            extendBodyBehindAppBar: true,
+            appBar: AppBar(
+              title: const Text("Weather Whisk"),
+              centerTitle: true,
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.black,
+              elevation: 0.0,
             ),
-            Lottie.asset(
-              getWeatherAnimation(wweather?.mainCondition),
+            body: BlocBuilder<WeatherCubit, WeatherState>(
+              builder: (context, state) {
+                if (state.isLoading) {
+                  return Center(
+                      child: LoadingAnimationWidget.threeRotatingDots(
+                          color: Colors.black, size: 100));
+                }
+                return Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: state.background,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: w * 0.05, vertical: h * 0.05),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                SizedBox(height: h * 0.05),
+                                TodaysWeather(),
+                                CustomDivider(),
+                                SizedBox(height: Styles.defaultDividerSpace),
+                                WeatherDetails(),
+                                SizedBox(height: Styles.defaultDividerSpace),
+                                CustomDivider(),
+                                SizedBox(height: Styles.defaultDividerSpace),
+                                WeatherForecast(),
+                                SizedBox(height: Styles.defaultDividerSpace),
+                                DetailedForecast()
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            Column(
-              children: [
-                Text('${wweather?.temperature.round()} °C',
-                    style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-                // Text(wweather?.mainCondition ?? '',
-                //     style: TextStyle(
-                //         fontSize: 30,
-                //         fontWeight: FontWeight.bold,
-                //         color: Colors.white)),
-              ],
-            )
-          ],
-        ),
+          );
+        },
       ),
     );
   }
